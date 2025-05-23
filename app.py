@@ -1,57 +1,77 @@
-from flask import Flask, request, Response, jsonify
+from flask import Flask, request, jsonify
 import requests
 import json
+import threading
+from byte import Encrypt_ID, encrypt_api
 
 app = Flask(__name__)
 
-
-API_SUB_URL = "http://160.250.137.144:5001/like"
-API_KEY = "qqwweerrb"
-
-@app.route('/like', methods=['GET'])
-def like_proxy():
-    uid = request.args.get('uid')
-    region = request.args.get('server_name') or request.args.get('region')
-
-    if not uid or not region:
-        return jsonify({"error": "Thiếu uid hoặc server_name"}), 400
-
+def load_tokens():
     try:
-        response = requests.get(API_SUB_URL, params={
-            "uid": uid,
-            "server_name": region,
-            "key": API_KEY
-        }, timeout=10)
+        with open("spam_vn.json", "r") as file:
+            data = json.load(file)
+        tokens = [item["token"] for item in data]  
+        return tokens
+    except Exception as e:
+        print(f"Error loading tokens: {e}")
+        return []
 
-        # Nếu API phụ trả về lỗi 5xx thì không để lộ chi tiết
-        if response.status_code >= 500:
-            return jsonify({"error": "Hệ thống hiện đang bảo trì. Vui lòng thử lại sau."}), 503
+def send_friend_request(uid, token, results):
+    encrypted_id = Encrypt_ID(uid)
+    payload = f"08a7c4839f1e10{encrypted_id}1801"
+    encrypted_payload = encrypt_api(payload)
 
-        data = response.json()
+    url = 'https://clientbp.ggblueshark.com/UpdateSocialBasicInfo'
+        headers = {
+            'Expect': '100-continue',
+            'Authorization': f'Bearer {token}',
+            'X-Unity-Version': '2018.4.11f1',
+            'X-GA': 'v1 1',
+            'ReleaseVersion': 'OB49',
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'User-Agent': 'Dalvik/2.1.0 (Linux; U; Android 9; Redmi Note 5 MIUI/V11.0.3.0.PEIMIXM)',
+            'Host': 'clientbp.ggblueshark.com',
+            'Connection': 'Keep-Alive',
+            'Accept-Encoding': 'gzip'
+        }
 
-        # Xóa trường "owner" nếu có
-        data.pop("owner", None)
+    response = requests.post(url, headers=headers, data=bytes.fromhex(encrypted_payload))
 
-        # Kiểm tra các trường cần thiết
-        required_keys = ["likes_given", "likes_before", "likes_after", "nickname", "status", "uid"]
-        if not all(k in data for k in required_keys):
-            return jsonify({"error": "Không thể xử lý dữ liệu. Vui lòng thử lại sau."}), 500
+    if response.status_code == 200:
+        results["success"] += 1
+    else:
+        results["failed"] += 1
 
-        return jsonify({
-            "LikesGivenByAPI": data["likes_given"],
-            "Credit": "@tranhao116",
-            "LikesafterCommand": data["likes_after"],
-            "LikesbeforeCommand": data["likes_before"],
-            "PlayerNickname": data["nickname"],
-            "UID": data["uid"],
-            "status": data["status"]
-        })
+@app.route("/send_requests", methods=["GET"])
+def send_requests():
+    uid = request.args.get("uid")
 
-    except requests.exceptions.RequestException:
-        return jsonify({"error": "Không thể kết nối đến hệ thống. Vui lòng thử lại sau."}), 502
+    if not uid:
+        return jsonify({"error": "uid parameter is required"}), 400
 
-    except Exception:
-        return jsonify({"error": "Đã xảy ra lỗi không xác định. Vui lòng thử lại sau."}), 500
+    tokens = load_tokens()
+    if not tokens:
+        return jsonify({"error": "No tokens found in spam_ind.json"}), 500
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    results = {"success": 0, "failed": 0}
+    threads = []
+
+    for token in tokens[:110]:
+        thread = threading.Thread(target=send_friend_request, args=(uid, token, results))
+        threads.append(thread)
+        thread.start()
+
+    for thread in threads:
+        thread.join()
+
+    total_requests = results["success"] + results["failed"]
+    status = 1 if results["success"] != 0 else 2
+
+    return jsonify({
+        "success_count": results["success"],
+        "failed_count": results["failed"],
+        "status": status
+    })
+
+if __name__ == "__main__":
+    app.run(debug=True, host="0.0.0.0", port=5000)
