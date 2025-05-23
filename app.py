@@ -22,18 +22,18 @@ def send_friend_request(uid, token, results):
     encrypted_payload = encrypt_api(payload)
 
     url = 'https://clientbp.ggblueshark.com/UpdateSocialBasicInfo'
-        headers = {
-            'Expect': '100-continue',
-            'Authorization': f'Bearer {token}',
-            'X-Unity-Version': '2018.4.11f1',
-            'X-GA': 'v1 1',
-            'ReleaseVersion': 'OB49',
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'User-Agent': 'Dalvik/2.1.0 (Linux; U; Android 9; Redmi Note 5 MIUI/V11.0.3.0.PEIMIXM)',
-            'Host': 'clientbp.ggblueshark.com',
-            'Connection': 'Keep-Alive',
-            'Accept-Encoding': 'gzip'
-        }
+    headers = {
+        'Expect': '100-continue',
+        'Authorization': f'Bearer {token}',
+        'X-Unity-Version': '2018.4.11f1',
+        'X-GA': 'v1 1',
+        'ReleaseVersion': 'OB49',
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'User-Agent': 'Dalvik/2.1.0 (Linux; U; Android 9; Redmi Note 5 MIUI/V11.0.3.0.PEIMIXM)',
+        'Host': 'clientbp.ggblueshark.com',
+        'Connection': 'Keep-Alive',
+        'Accept-Encoding': 'gzip'
+    }
 
     response = requests.post(url, headers=headers, data=bytes.fromhex(encrypted_payload))
 
@@ -51,7 +51,7 @@ def send_requests():
 
     tokens = load_tokens()
     if not tokens:
-        return jsonify({"error": "No tokens found in spam_ind.json"}), 500
+        return jsonify({"error": "No tokens found in spam_vn.json"}), 500
 
     results = {"success": 0, "failed": 0}
     threads = []
